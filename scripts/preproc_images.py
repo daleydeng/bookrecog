@@ -58,7 +58,7 @@ types = {
 }
 
 def read_list(f):
-    return set(osp.splitext(l.strip())[0] for l in open(f) if l.strip())
+    return set(osp.splitext(l.strip())[0].split('_')[0] for l in open(f) if l.strip())
 
 def resize_worker(tsk, max_w):
     img_f, dst_f, tp = tsk
