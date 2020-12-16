@@ -6,6 +6,7 @@ import numpy as np
 import shutil
 import cv2
 import pylab as plt
+import multiprocessing as mp
 from preproc_images import parse_fname, hash_name, read_list
 
 def rot90(v, n):
@@ -13,7 +14,22 @@ def rot90(v, n):
         v = np.rot90(v)
     return v
 
-def main():
+def proc_worker(tsk):
+    src_f, dst_f, mode = tsk
+    img = cv2.imread(src_f)
+    if mode == 'down':
+        n = 2
+    elif mode == 'right':
+        n = 1
+    elif mode == 'left':
+        n = 3
+    else:
+        raise
+
+    img = rot90(img, n)
+    cv2.imwrite(dst_f, img)
+
+def main(jobs=32):
     src_d = 'images0'
     img_fs = sorted(glob(src_d+'/*/*.jpg'))
 
@@ -27,6 +43,7 @@ def main():
 
     all_list = front_down_list | front_right_list | front_left_list | back_down_list | back_left_list | back_right_list
 
+    tasks = []
     for img_f in tqdm(img_fs):
         ret = parse_fname(img_f)
         if not ret:
@@ -42,37 +59,28 @@ def main():
         if not osp.exists(bak_f):
             shutil.copy2(img_f, bak_f)
 
-        for pre_tp, down_l, right_l, left_l in [
-                [
-                    'front',
-                    front_down_list,
-                    front_right_list,
-                    front_left_list,
-                ], [
-                    'back',
-                    back_down_list,
-                    back_right_list,
-                    back_left_list,
-                ]]:
-
-            if tp != pre_tp:
+        if tp in ('front', 'back'):
+            if tp == 'front':
+                down_l, right_l, left_l = front_down_list, front_right_list, front_left_list,
+            elif tp == 'back':
+                down_l, right_l, left_l = back_down_list, back_right_list, back_left_list,
+            mode = ''
+            if h in down_l:
+                mode = 'down'
+            elif h in right_l:
+                mode = 'right'
+            elif h in left_l:
+                mode = 'left'
+            else:
                 continue
 
-            if h in down_l:
-                img = cv2.imread(bak_f)
-                img = rot90(img, 2)
-                cv2.imwrite(img_f, img)
+            tasks.append((bak_f, img_f, mode))
 
-            elif h in right_l:
-                img = cv2.imread(bak_f)
-                img = rot90(img, 1)
-                cv2.imwrite(img_f, img)
-
-            elif h in left_l:
-                img = cv2.imread(bak_f)
-                img = rot90(img, 3)
-                cv2.imwrite(img_f, img)
-
+    with mp.Pool(jobs) as pool:
+        with tqdm(total=len(tasks)) as pbar:
+            for i, _ in enumerate(pool.imap_unordered(proc_worker, tasks)):
+                pbar.update()
 
 if __name__ == "__main__":
-    main()
+    import fire
+    fire.Fire(main)

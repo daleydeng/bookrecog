@@ -89,7 +89,7 @@ def parse_fname(img_f):
     tp = types[tp.strip()]
     return book_name, tp
 
-def main(src_d='images0', dst_d='images_{}x', list_f='list.txt', max_w=1024, jobs=20):
+def main(src_d='images0', dst_d='images_{}x', list_f='list.txt', max_w=1024, jobs=32):
     dst_d = dst_d.format(max_w)
     os.makedirs(dst_d, exist_ok=True)
 
